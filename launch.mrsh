@@ -1,0 +1,8 @@
+#
+# Launches/Connects Sonoran, creates a mote and loads the assembly.
+#
+set-var PROJECTDIR "/home/hoferr/ETH/Semester_9/System_Design_for_Wireless_Sensor_Networks/workspace/GaGu/"
+set-var TARGETNAME "GaGu"
+sag-start
+mote-create
+0 moma-load "${TARGETNAME}"
