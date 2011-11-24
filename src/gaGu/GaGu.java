@@ -13,7 +13,7 @@ public class GaGu {
 	private static byte[] m_sampleBuffer = new byte[4];
 	
 	// LED status (Spark Mood)
-	private static byte onLED; // 0 = spark not here, 1,2,3 = rd, gn, yl
+	private static byte onLED; // 3 = spark not here, 0,1,2 = rd, gn, yl
 	
 	// Timer
 	private static Timer timer = new Timer();
@@ -41,7 +41,8 @@ public class GaGu {
 				GaGu.onTimeout(param, time);
 			}
 		});
-		timer.setAlarmTime(Time.currentTicks() + INTERVAL);
+		
+		timer.setAlarmBySpan(INTERVAL);
 		
 		
 		
@@ -90,6 +91,7 @@ public class GaGu {
 		//updateAcc();
 		//changeMood();
 		//changeHome();
+		timer.setAlarmBySpan(INTERVAL);
 	}
 	
 	// Update acceleration sensor values
