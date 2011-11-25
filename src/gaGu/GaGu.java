@@ -6,22 +6,27 @@ import com.ibm.saguaro.system.*;
 
 public class GaGu {
 	
-	// Acceleration sensor
-	@Immutable
-	public static final byte[] acc_cal = {1,1};
-	private static byte[] m_sampleBuffer = new byte[4];
-	
+//	@Immutable
+//	public static final byte[] accCal = {1,1};
+    private static int m_xCalib = 0; 
+    private static int m_yCalib = 0;
+	private static byte[] accVal = new byte[4];
+	private static int sparkMood;
+	private static int sparkWanderlust;
+    
 	// LED status (Spark Mood)
-	private static byte onLED; // 3 = spark not here, 0,1,2 = rd, gn, yl
+	private static byte spark; // 3 = spark not here, 0,1,2 = rd, gn, yl
+
 	
 	// Timer
+	//private static final long INTERVAL = Time.toTickSpan(Time.SECONDS, 1);
+	private static final long INTERVAL = Time.toTickSpan(Time.MILLISECS, 200);
 	private static Timer timer = new Timer();
-	//private static long INTERVAL = Time.toTickSpan(Time.MILLISECS, 200);
-	private static long INTERVAL = Time.toTickSpan(Time.SECONDS, 1);
+	
 
-		
 	// Main
 	static {
+		spark = (byte)(Util.rand8() & 3);	// TODO debug acc sensor 
 		
 		// Calibrate Sensors
 		LED.setState( (byte)0, (byte)1 );
@@ -53,11 +58,8 @@ public class GaGu {
 	// Calibrate Acceleration Sensor
 	static void calAcc() {
 	    byte[] l_tempBuffer = new byte[4];
-	    int m_xCalib = 0; 
-	    int m_yCalib = 0;
-	    int l_nIterations = 8;
 	    
-
+	    int l_nIterations = 8;
 	    for (int i = 0; i < l_nIterations; i++) {
 	        try{
 	            SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, l_tempBuffer, 0, 4);
@@ -71,12 +73,14 @@ public class GaGu {
 	    m_xCalib >>= 3;
 	    m_yCalib >>= 3;
 	    
-	    l_tempBuffer[0] = (byte)m_xCalib;
-	    l_tempBuffer[1] = (byte)m_yCalib;
-	    l_tempBuffer[2] = (byte)0;
-	    l_tempBuffer[3] = (byte)0;
 	    
-	    Util.updatePersistentData(l_tempBuffer, 0, acc_cal, 0, acc_cal.length);
+	    
+//	    l_tempBuffer[0] = (byte)m_xCalib;
+//	    l_tempBuffer[1] = (byte)m_yCalib;
+//	    l_tempBuffer[2] = (byte)0;
+//	    l_tempBuffer[3] = (byte)0;
+//	    
+//	    Util.updatePersistentData(l_tempBuffer, 0, accCal, 0, accCal.length);
 	}
 	
 	// Calibrate Light Sensor
@@ -86,30 +90,36 @@ public class GaGu {
 	
 	// Spark mood and wanderlust
 	static void onTimeout(byte param, long time) {
-		rotLed(true);
-		//updateAcc();
-		//changeMood();
+		updateAcc();
+		changeMood();
 		//changeHome();
 		timer.setAlarmBySpan(INTERVAL);
 	}
 	
 	// Update acceleration sensor values
 	static void updateAcc() {
-		SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, m_sampleBuffer , 0 , 4);
+		// Read sensor
+		SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, accVal , 0 , 4);
+		// Store calibrated sensor values
+		sparkMood = (int)Util.get16be(accVal,0) - m_xCalib;
+//	    sparkMood = (int)Util.get16be(accVal,0);
+//	    sparkMood -= (int)Util.get16be(accCal, 0);
+		sparkWanderlust = (int)Util.get16be(accVal,2) - m_yCalib;
+//	    sparkWanderlust = (int)Util.get16be(accVal,2);
+//	    sparkWanderlust -= (int)Util.get16be(accCal, 2);
 	}
 	
 	// Run updateAcc first!
 	static void changeMood() {
-		int moodDir = (int)Util.get16be(m_sampleBuffer,0);
-		if (moodDir > 1)		// TODO: adjust threshold
+		if (sparkMood > 0)			// TODO: adjust threshold
 			rotLed(true);
-		else if (moodDir < -1)	// TODO: adjust threshold
+		else if (sparkMood < 0)	// TODO: adjust threshold
 			rotLed(false);
 	}
 	
 	// Run updateAcc first!
 	static void changeHome() {
-		int wanderlust = (int)Util.get16be(m_sampleBuffer,2);
+		int wanderlust = (int)Util.get16be(accVal,2);
 		if (wanderlust > 1 | wanderlust < -1) {
 			// TODO: send spark away
 			allLedsOff();
@@ -121,20 +131,20 @@ public class GaGu {
 	static void rotLed(boolean switchLeft) {
 		// Prepare LED Status
 		if (switchLeft) {
-			if (onLED == 2)
-				onLED = 0;
+			if (spark == 2)
+				spark = 0;
 			else
-				onLED++;
+				spark++;
 		} else {
-			if (onLED == 0)
-				onLED = 2;
+			if (spark == 0)
+				spark = 2;
 			else
-				onLED--;
+				spark--;
 		}
 		
 		// Update LED Status
 		for (byte i = 0; i < 3; i++) {
-			if (onLED == i)
+			if (spark == i)
 				LED.setState(i, (byte)1);
 			else
 				LED.setState(i, (byte)0);
