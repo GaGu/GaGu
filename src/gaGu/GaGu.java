@@ -5,159 +5,145 @@ import com.ibm.saguaro.system.*;
 
 
 public class GaGu {
-	
-//	@Immutable
-//	public static final byte[] accCal = {1,1};
-    private static int m_xCalib = 0; 
-    private static int m_yCalib = 0;
-	private static byte[] accVal = new byte[4];
-	private static int sparkMood;
-	private static int sparkWanderlust;
-    
-	// LED status (Spark Mood)
-	private static byte spark; // 3 = spark not here, 0,1,2 = rd, gn, yl
+    private static long             m_interval;
+    private static Timer            m_sampleTimer;
+    private static int              m_wanderlustCalib;
+    private static int              m_moodCalib;
+    private static byte             m_mood;	// 3 = spark not here, 0,1,2 = rd, gn, yl
+    private static byte             m_nLEDs;
+    private static int              m_gravityThreshold;
+    private static byte[]           m_sampleBuffer;
+    private static boolean          m_moodWait;
 
+    static GaGu gagu;
 	
-	// Timer
-	//private static final long INTERVAL = Time.toTickSpan(Time.SECONDS, 1);
-	private static final long INTERVAL = Time.toTickSpan(Time.MILLISECS, 200);
-	private static Timer timer = new Timer();
-	
-
-	// Main
-	static {
-		spark = (byte)(Util.rand8() & 3);	// TODO debug acc sensor 
-		
-		// Calibrate Sensors
-		LED.setState( (byte)0, (byte)1 );
-		LED.setState( (byte)1, (byte)1 );
-		LED.setState( (byte)2, (byte)1 );
-		// Calibrate Acceleration
-		calAcc();
-		// Calibrate Light
-		//calLight();
-		LED.setState( (byte)0, (byte)0 );
-		LED.setState( (byte)1, (byte)0 );
-		LED.setState( (byte)2, (byte)0 );
-		
-		timer.setCallback(new TimerEvent(null) {
-			public void invoke(byte param, long time) {
-				GaGu.onTimeout(param, time);
-			}
-		});
-		
-		timer.setAlarmBySpan(INTERVAL);
-		
-		
-		
-	}
-	
-	
-	
-
-	// Calibrate Acceleration Sensor
-	static void calAcc() {
-	    byte[] l_tempBuffer = new byte[4];
-	    
-	    int l_nIterations = 8;
-	    for (int i = 0; i < l_nIterations; i++) {
-	        try{
-	            SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, l_tempBuffer, 0, 4);
-	        } catch (MoteException e) {
-	            continue; 
-	        }
-	        m_xCalib += (int) Util.get16be(l_tempBuffer,0); 
-	        m_yCalib += (int) Util.get16be(l_tempBuffer,2); 
-	    }
-
-	    m_xCalib >>= 3;
-	    m_yCalib >>= 3;
-	    
-	    
-	    
-//	    l_tempBuffer[0] = (byte)m_xCalib;
-//	    l_tempBuffer[1] = (byte)m_yCalib;
-//	    l_tempBuffer[2] = (byte)0;
-//	    l_tempBuffer[3] = (byte)0;
-//	    
-//	    Util.updatePersistentData(l_tempBuffer, 0, accCal, 0, accCal.length);
-	}
-	
-	// Calibrate Light Sensor
-	static void calLight() {
-		
-	}
-	
-	// Spark mood and wanderlust
-	static void onTimeout(byte param, long time) {
-		updateAcc();
-		changeMood();
-		//changeHome();
-		timer.setAlarmBySpan(INTERVAL);
-	}
-	
-	// Update acceleration sensor values
-	static void updateAcc() {
-		// Read sensor
-		SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, accVal , 0 , 4);
-		// Store calibrated sensor values
-		sparkMood = (int)Util.get16be(accVal,0) - m_xCalib;
-//	    sparkMood = (int)Util.get16be(accVal,0);
-//	    sparkMood -= (int)Util.get16be(accCal, 0);
-		sparkWanderlust = (int)Util.get16be(accVal,2) - m_yCalib;
-//	    sparkWanderlust = (int)Util.get16be(accVal,2);
-//	    sparkWanderlust -= (int)Util.get16be(accCal, 2);
-	}
-	
-	// Run updateAcc first!
-	static void changeMood() {
-		if (sparkMood > 0)			// TODO: adjust threshold
-			rotLed(true);
-		else if (sparkMood < 0)	// TODO: adjust threshold
-			rotLed(false);
-	}
-	
-	// Run updateAcc first!
-	static void changeHome() {
-		int wanderlust = (int)Util.get16be(accVal,2);
-		if (wanderlust > 1 | wanderlust < -1) {
-			// TODO: send spark away
-			allLedsOff();
-		}
-	}
-	
-	// Rotate LED
-	// Rotate LED left if switchLeft = true else rotate LED right
-	static void rotLed(boolean switchLeft) {
-		// Prepare LED Status
-		if (switchLeft) {
-			if (spark == 2)
-				spark = 0;
-			else
-				spark++;
-		} else {
-			if (spark == 0)
-				spark = 2;
-			else
-				spark--;
-		}
-		
-		// Update LED Status
-		for (byte i = 0; i < 3; i++) {
-			if (spark == i)
-				LED.setState(i, (byte)1);
-			else
-				LED.setState(i, (byte)0);
-		}
-	}
-	
-	// Set LED off
-
-    static void allLedsOff () {
-        // turn-off all LEDs
-        for (byte i = 0; i < 3; i++)
-            LED.setState(i, (byte)0);
+    static {
+        gagu = new GaGu();
+        gagu.init();
+        gagu.start();
     }
 	
+    public GaGu() {
+    	m_interval = Time.toTickSpan(Time.MILLISECS,200);
+    	m_gravityThreshold = 50 / 2;
+        m_mood = 0;
+        m_sampleTimer = new Timer();
+        m_nLEDs = (byte)LED.getNumLEDs();
+        m_moodWait = false;
+        m_sampleBuffer = new byte[4]; // two for X and two for Y axis
+        m_sampleTimer.setCallback(new TimerEvent(this) {
+        	public void invoke(byte param, long time) {
+        		((GaGu)obj).timerCallback(param,time);
+        	}
+        });
+    }
+    
+    public void init() {
+        for (byte i = 0; i < m_nLEDs; i++)
+        	LED.setState( i, (byte)1 );
+        calibrateAcc();
+        unset_LEDs();
+    }
 
+    public void start() {
+        m_sampleTimer.setAlarmBySpan(m_interval);
+    }
+
+    public void stop() {
+        m_sampleTimer.cancelAlarm();
+    }
+
+    public void timerCallback(byte param, long time) {
+    	m_sampleTimer.setAlarmBySpan(m_interval);
+    	getUserInput();
+    }
+    
+    public void getUserInput() {
+        int l_wanderlust, l_mood;
+
+        // Read sensor
+        SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, m_sampleBuffer , 0 , 4);
+        l_wanderlust = (int)Util.get16be(m_sampleBuffer,0) - m_wanderlustCalib;
+        l_mood       = (int)Util.get16be(m_sampleBuffer,2) - m_moodCalib;
+        
+        // Change mood?
+        if (!m_moodWait) {
+        	// Change mood
+        	if (l_mood > 0 && l_mood > m_gravityThreshold) {
+        		// Prepare LED Status
+//        		m_mood = (byte) ((m_mood>=1)? m_mood-1 : m_mood);
+        		if (m_mood == 0)
+        			m_mood = (byte)(m_nLEDs - 1);
+        		else
+        			m_mood--;
+        		set_LED(m_mood);
+        		m_moodWait = true;
+        	}
+        	else if (l_mood < 0 && l_mood < -m_gravityThreshold) {
+        		// Prepare LED status
+//        		m_mood = (byte) ((m_mood<m_nLEDs-1)? (m_mood+1) : m_mood);
+        		if (m_mood == (byte)(m_nLEDs - 1))
+        			m_mood = 0;
+        		else
+        			m_mood++;
+        		set_LED(m_mood);
+        		m_moodWait = true;
+        	}
+        } 
+        else {
+        	// Mood changed, reset?
+        	if ( (l_mood > 0 && l_mood < m_gravityThreshold) || (l_mood < 0 && l_mood > -m_gravityThreshold) ) {
+        		// Reset
+        		m_moodWait = false;
+        	}
+        }
+        
+        
+        // Wanderlust?
+        if ( (l_wanderlust > 0 && l_wanderlust > m_gravityThreshold) || (l_wanderlust < 0 && l_wanderlust < -m_gravityThreshold) ) {
+        	// Send spark away
+        	m_mood = m_nLEDs;
+        	unset_LEDs();
+        } 
+    }
+
+    private void calibrateAcc() {
+
+        byte[] l_tempBuffer = new byte[4];
+
+        m_wanderlustCalib         = 0;
+        m_moodCalib         = 0;
+        int l_nIterations = 8;
+        for(int i = 0; i < l_nIterations; i++) {
+            // ignore the first values
+            try{
+                SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, l_tempBuffer, 0, 4);
+            } catch (MoteException e) {
+                continue;
+            }
+        }
+        for(int i = 0; i < l_nIterations; i++) {
+            try{
+                SimpleDevices.read(SimpleDevices.MOTE_ACCEL, 0, 0, l_tempBuffer, 0, 4);
+            } catch (MoteException e) {
+                continue;
+            }
+            m_wanderlustCalib += (int) Util.get16be(l_tempBuffer,0);
+            m_moodCalib += (int) Util.get16be(l_tempBuffer,2);
+        }
+
+        // take the average
+        m_wanderlustCalib >>= 3;
+        m_moodCalib >>= 3;
+    }
+
+    private void set_LED(byte in_ledNumber) {
+    	unset_LEDs();
+        LED.setState(in_ledNumber,(byte)1);
+    }
+    
+    private void unset_LEDs() {
+        for (byte i = 0; i < m_nLEDs; i++)
+            LED.setState(i,(byte)0);
+    }
 }
