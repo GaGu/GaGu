@@ -1,0 +1,41 @@
+mote-create
+mote-create
+mote-create
+mote-create
+mote-create
+mote-create
+mote-create
+mote-create
+
+a0 mote-position -x 0 -y 0
+a1 mote-position -x 0 -y 0
+a2 mote-position -x 0 -y 0
+a3 mote-position -x 0 -y 0
+a4 mote-position -x 0 -y 0
+a5 mote-position -x 0 -y 0
+a6 mote-position -x 0 -y 0
+a7 mote-position -x 0 -y 0
+
+a0 mom-loa radiotest
+sleep 4000
+
+a1 mom-loa radiotest
+sleep 4000
+
+a2 mom-loa radiotest
+sleep 4000
+
+a3 mom-loa radiotest
+sleep 4000
+
+a4 mom-loa radiotest
+sleep 4000
+
+a5 mom-loa radiotest
+sleep 4000
+
+a6 mom-loa radiotest
+sleep 4000
+
+a7 mom-loa radiotest
+sleep 4000
