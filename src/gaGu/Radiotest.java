@@ -55,6 +55,8 @@ public class Radiotest {
 		} //end static
 		
 		
+		
+		
 /****************************Variables for Synchronizer or Follower mode***********************/
 
 		// schedules of neighbors
