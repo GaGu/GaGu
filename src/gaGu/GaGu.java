@@ -9,6 +9,7 @@ import com.ibm.saguaro.system.*;
 - Send to specific dest address
 - Reduce intervals and delays
 - Change modus from gateway
+- Change communication to CSMA
 */
 
 
