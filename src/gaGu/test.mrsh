@@ -16,26 +16,26 @@ a5 mote-position -x 0 -y 0
 a6 mote-position -x 0 -y 0
 a7 mote-position -x 0 -y 0
 
-a0 mom-loa radiotest
+a0 mom-loa gagu-1.0
 sleep 4000
 
-a1 mom-loa radiotest
+a1 mom-loa gagu-1.0
 sleep 4000
 
-a2 mom-loa radiotest
+a2 mom-loa gagu-1.0
 sleep 4000
 
-a3 mom-loa radiotest
+a3 mom-loa gagu-1.0
 sleep 4000
 
-a4 mom-loa radiotest
+a4 mom-loa gagu-1.0
 sleep 4000
 
-a5 mom-loa radiotest
+a5 mom-loa gagu-1.0
 sleep 4000
 
-a6 mom-loa radiotest
+a6 mom-loa gagu-1.0
 sleep 4000
 
-a7 mom-loa radiotest
+a7 mom-loa gagu-1.0
 sleep 4000

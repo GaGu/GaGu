@@ -7,9 +7,9 @@ import com.ibm.saguaro.system.*;
 /* TODO:
 - Read light sensor
 - Send to specific dest address
+- Change communication to CSMA
 - Reduce intervals and delays
 - Change modus from gateway
-- Change communication to CSMA
 */
 
 
@@ -23,11 +23,11 @@ public class GaGu {
     private static boolean          m_moodWait;
     
 	// sleep for 2 seconds
-	static long SLEEP_INTERVAL_TICKS = Time.toTickSpan(Time.SECONDS, 2);
+	static long SLEEP_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 200);
 	// listen interval 100 ms
-	static long LISTEN_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 100);
+	static long LISTEN_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 50);
 	// delay quanta before answering the beacon
-	static long DELAY = Time.toTickSpan(Time.MILLISECS, 200);
+	static long DELAY = Time.toTickSpan(Time.MILLISECS, 5);
 	// fixed PAN
 	static int PANID = 0x57AC;
 	// the extended unique address of a mote
@@ -204,7 +204,6 @@ public class GaGu {
 	 */
 	static void discoverRxPdu(byte[] pdu, int len, long time, int quality) {
 		
-		
 		if (beaconCount == MAX_BEACONS)
 			return;
 
@@ -220,7 +219,7 @@ public class GaGu {
 		scheduleAddresses[beaconCount] = address;
 		scheduleTimes[beaconCount] = time + SLEEP_INTERVAL_TICKS;
 		// use last 2 bits of mote address for "random" answering delay
-		scheduleDelays[beaconCount] = (myShortAddress & 0x03) * DELAY + DELAY;
+		scheduleDelays[beaconCount] = (myShortAddress & 0x07) * DELAY + DELAY;
 		beaconCount++;
 	}
 
@@ -305,23 +304,14 @@ public class GaGu {
 		// sequence number
 		syncMessage[2]++;
 		
-		// Transmission
-		Radio.transmit(0, syncMessage, 0, 11, nextBeacon,
-				new RadioTxDone(null) {
-					@Override
-					public void invoke(byte[] pdu, int len, int status,
-							long txend) {
-						beaconSent(pdu, len, status, txend);
-					}
-				});
-
-		
 	}
 	
 	/**
 	 * Synchronizer: received a SYNC message from follower.
 	 */
 	static void listenToFollower(byte[] pdu, int len, long time, int quality) {
+		// TODO: Check gateway message
+		
 		// TODO: Check if next home is different
 		// if modus == dist
 			//var=qual
@@ -339,6 +329,16 @@ public class GaGu {
 	 * Synchronizer: finished listening.
 	 */		
 	static void listenToFollowerDone(int info) {
+		// Transmission
+		Radio.transmit(0, syncMessage, 0, 11, nextBeacon,
+				new RadioTxDone(null) {
+					@Override
+					public void invoke(byte[] pdu, int len, int status,
+							long txend) {
+						beaconSent(pdu, len, status, txend);
+					}
+				});
+		
 		getUserInput();
 	}
 	
