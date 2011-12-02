@@ -22,9 +22,12 @@ public class GaGu {
     private static byte[]           m_sampleBuffer;
     private static boolean          m_moodWait;
     
-	// sleep for 2 seconds
+    // Light sensor readout
+    static long LIGHT_INTERVAL_TICKS = Time.toTickSpan(Time.SECONDS, 2);
+    
+	// sleep time
 	static long SLEEP_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 200);
-	// listen interval 100 ms
+	// listen interval
 	static long LISTEN_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 50);
 	// delay quanta before answering the beacon
 	static long DELAY = Time.toTickSpan(Time.MILLISECS, 5);
@@ -103,6 +106,11 @@ public class GaGu {
 		// Starting discovery mode
 		Radio.enableRx(Time.currentTicks() + 2 * SLEEP_INTERVAL_TICKS);
     }
+    
+    public void stop() {
+    	
+    }
+    
     
     public static void getUserInput() {
         int l_wanderlust, l_mood;
@@ -429,4 +437,6 @@ public class GaGu {
 
 		Radio.enableRx((byte) 0, nextBeacon, nextBeacon+LISTEN_INTERVAL_TICKS);
 	}*/
+	
+	
 }
