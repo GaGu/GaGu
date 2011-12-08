@@ -3,7 +3,7 @@ package gaGu;
 //Changes since last synchronization (31.11.2011 - 13:00)
 //31.11.2011: 	Use last 3 Bits for Delay ( & 0x07 )
 //				Made system faster: 200ms/50ms/5ms
-//				Transmission of Synchronizer moved to listenToFollowerDone()
+//				Transmission of Synchronizer moved from beaconsent() to listenToFollowerDone()
 
 
 import com.ibm.saguaro.system.*;
@@ -21,11 +21,11 @@ public class GaGu {
     private static boolean m_moodWait;
     
     // sleep for 2 seconds
- 	static long SLEEP_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 200);
+ 	static long SLEEP_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 2000);
  	// listen interval 100 ms
- 	static long LISTEN_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 50);
+ 	static long LISTEN_INTERVAL_TICKS = Time.toTickSpan(Time.MILLISECS, 100);
  	// delay quanta before answering the beacon
- 	static long DELAY = Time.toTickSpan(Time.MILLISECS, 5);
+ 	static long DELAY = Time.toTickSpan(Time.MILLISECS, 200);
  	// fixed PAN
  	static int PANID = 0x57AC;
 	// the extended unique address of a mote
@@ -130,42 +130,42 @@ public class GaGu {
         
         // Change mood?
         if (!m_moodWait) {
-         // Change mood
-         if (l_mood > 0 && l_mood > m_gravityThreshold) {
-         // Prepare LED Status
-         if (m_mood == 0)
-         m_mood = (byte)(m_nLEDs - 1);
-         else
-         m_mood--;
-         set_LED(m_mood);
-         m_moodWait = true;
-         }
-         else if (l_mood < 0 && l_mood < -m_gravityThreshold) {
-         // Prepare LED status
-// m_mood = (byte) ((m_mood<m_nLEDs-1)? (m_mood+1) : m_mood);
-         if (m_mood == (byte)(m_nLEDs - 1))
-         m_mood = 0;
-         else
-         m_mood++;
-         set_LED(m_mood);
-         m_moodWait = true;
-         }
+        	// Change mood
+        	if (l_mood > 0 && l_mood > m_gravityThreshold) {
+        			// Prepare LED Status
+        			if (m_mood == 0)
+        				m_mood = (byte)(m_nLEDs - 1);
+        			else
+        				m_mood--;
+        			set_LED(m_mood);
+        			m_moodWait = true;
+        	}
+        	else if (l_mood < 0 && l_mood < -m_gravityThreshold) {
+        			// Prepare LED status
+        			// m_mood = (byte) ((m_mood<m_nLEDs-1)? (m_mood+1) : m_mood);
+        			if (m_mood == (byte)(m_nLEDs - 1))
+        				m_mood = 0;
+        			else
+        				m_mood++;
+        			set_LED(m_mood);
+        			m_moodWait = true;
+        	}
         }
         else {
-         // Mood changed, reset?
-         if ( (l_mood > 0 && l_mood < m_gravityThreshold) || (l_mood < 0 && l_mood > -m_gravityThreshold) ) {
-         // Reset
-         m_moodWait = false;
-         }
+        	// Mood changed, reset?
+        	if ( (l_mood > 0 && l_mood < m_gravityThreshold) || (l_mood < 0 && l_mood > -m_gravityThreshold) ) {
+        		// Reset
+        		m_moodWait = false;
+        	}
         }
         
         
         // Wanderlust?
         if ( (l_wanderlust > 0 && l_wanderlust > m_gravityThreshold) || (l_wanderlust < 0 && l_wanderlust < -m_gravityThreshold) ) {
-         // Send spark away
-         syncMessage[7] = m_mood;
-         m_mood = m_nLEDs;
-         unset_LEDs();
+        	// Send spark away
+        	syncMessage[7] = m_mood;
+        	m_mood = m_nLEDs;
+        	unset_LEDs();
          
         }
     }
@@ -311,7 +311,7 @@ public class GaGu {
 	}
 	
 	static void listenToFollower(byte[] pdu, int len, long time, int quality) {
-		
+		toggleRedLED();
 		//Evaluate Gateway 
 		// if pdu[7] == fiktive addresse
 		//		modus = pdu[8];
@@ -335,7 +335,7 @@ public class GaGu {
 		//toggleRedLED();
 		
 		// Transmission
-		Radio.transmit(0, syncMessage, 0, 11, nextBeacon,
+		Radio.transmit(Radio.TXMODE_CSMA, syncMessage, 0, 11, nextBeacon,
 				new RadioTxDone(null) {
 					@Override
 					public void invoke(byte[] pdu, int len, int status,
@@ -362,7 +362,7 @@ public class GaGu {
 		// if syncMessage[7] < 3
 		//        start()
 		
-		Radio.enableRx(Time.currentTicks() + 8 * DELAY);
+		Radio.enableRx(Time.currentTicks() + 9 * DELAY);
 		
 		// Sync Message - periodically sent
 		nextBeacon += SLEEP_INTERVAL_TICKS;
@@ -395,7 +395,7 @@ public class GaGu {
 	static void follower() {
 		
 		// add the address of the synchronizer
-		//Util.set16le(syncMessage, 7, scheduleAddresses[beaconIndex]);
+		Util.set16le(syncMessage, 7, scheduleAddresses[beaconIndex]);
 
 		// only deal with the first schedule
 		beaconIndex = 0;
@@ -444,7 +444,7 @@ public class GaGu {
 	 * Follower: finished listening.
 	 */		
 	static void listenToSynchronizerDone(int info) {
-		toggleRedLED();
+		//toggleRedLED();
 
 		//TODO: 
 		// Send darkness informations to the synchronizer. 
@@ -452,27 +452,28 @@ public class GaGu {
 		
 		//How to send only to synchronizer?
 		
-		/*
+		
 		// Transmit the SYNC message to synchronizer with mote info
-		Radio.transmit(0, syncMessage, 0, 11, nextBeacon
+		Radio.transmit(Radio.TXMODE_CSMA, syncMessage, 0, 11, nextBeacon
 				+ scheduleDelays[beaconIndex], new RadioTxDone(null) {
 			@Override
 			public void invoke(byte[] pdu, int len, int status, long txend) {
 				sendmoteinfoDone(pdu, len, status, txend);
 			}
-		});*/
+		});
 		
+		/*
 		//After transmitting  listen again
 		//Move this later in sendmoteinfoDone()
 		nextBeacon = scheduleTimes[beaconIndex];
 		scheduleTimes[beaconIndex] += SLEEP_INTERVAL_TICKS;
 
-		Radio.enableRx((byte) 0, nextBeacon, nextBeacon+LISTEN_INTERVAL_TICKS);
+		Radio.enableRx((byte) 0, nextBeacon, nextBeacon+LISTEN_INTERVAL_TICKS);*/
 		
 	}
 
-	/*
-	//TODO:
+	
+	
 	static void sendmoteinfoDone(byte[] pdu, int len, int status, long txend) {
 		toggleRedLED();
 
@@ -480,7 +481,7 @@ public class GaGu {
 		scheduleTimes[beaconIndex] += SLEEP_INTERVAL_TICKS;
 
 		Radio.enableRx((byte) 0, nextBeacon, nextBeacon+LISTEN_INTERVAL_TICKS);
-	}*/
+	}
 
 	
 
