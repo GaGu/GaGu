@@ -1,0 +1,22 @@
+.sxp-version 2.0
+
+.assembly gagu-2.0
+
+
+.namespace gaGu
+
+.class#0 public GaGu
+
+	.method#0 static public GaGu(r:gaGu.GaGu this)v
+
+	;;! Synchronizer: Sync message sent
+	.method#1 static public syncMessageSent(c[] pdu, i len,i status,l txend)v
+
+	;;! Follower: Foll message sent
+	.method#2 static public follMessageSent(c[] e, i pdu,i len,l status)v
+
+	;;! Sensor functions
+	.method#3 static public getUserInput()v
+.end
+
+.end
